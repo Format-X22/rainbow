@@ -12,23 +12,24 @@ class Calculator
 	EMA_MUL_INDENT = 25
 
 	def initialize
-		data = Marshal.restore File.read('data.txt')
+		@data = Marshal.restore File.read('data.txt')
+		@close = @data.map{|v| v[2]}
 
 		EXPANDS.each do |expand|
 			PERCENTS.each do |percent|
-				iteration(data, expand, percent)
+				iteration(expand, percent)
 			end
 		end
 	end
 
-	def iteration(data, expand, percent)
+	def iteration(expand, percent)
 		start_sema = BASIC_SEMA
 		sema = start_sema
 		lema = BASIC_LEMA
 
 		loop do
 
-			calc(data, expand, percent, sema, lema)
+			calc(expand, percent, sema, lema)
 
 			lema += 5
 
@@ -53,14 +54,12 @@ class Calculator
 		end
 	end
 
-	def calc(data, expand, percent, sema, lema)
-		close = data.map{|v| v[2]}
-
+	def calc(expand, percent, sema, lema)
 		state = 'wait'
 		sum = 0.0
 		order = nil
 
-		data.each.with_index do |tick, index|
+		@data.each.with_index do |tick, index|
 			next if index + 1 < lema
 
 			case state
