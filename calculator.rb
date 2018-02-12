@@ -2,14 +2,14 @@ require 'moving_average'
 
 class Calculator
 
-	EXPANDS = [100.0, 87.5, 75.0, 62.5, 50.0]
-	PERCENTS = [3.0, 2.5, 2.0, 1.5, 1.0, 0.75, 0.5]
+	EXPANDS = [100, 90, 80, 70, 60, 50, 40, 30]
+	PERCENTS = [5.0, 4.5, 4.0, 3.5, 3.0, 2.5, 2.0, 1.5, 1.0, 0.75, 0.5]
 	BASIC_SEMA = 5
-	END_SEMA = 200
+	END_SEMA = 300
 	BASIC_LEMA = 10
 	END_LEMA = 600
 	EMA_INDENT = 5
-	EMA_MUL_INDENT = 20
+	EMA_MUL_INDENT = 25
 
 	def initialize
 		data = Marshal.restore File.read('data.txt')
@@ -30,19 +30,19 @@ class Calculator
 
 			calc(data, expand, percent, sema, lema)
 
-			lema += 1
+			lema += 5
 
 			if lema / sema > EMA_MUL_INDENT
 
 				loop do
-					sema += 1
+					sema += 5
 
 					break if lema / sema <= EMA_MUL_INDENT
 				end
 			end
 
 			if lema > END_LEMA
-				start_sema += 1
+				start_sema += 5
 				sema = start_sema
 				lema = sema + EMA_INDENT
 			end
@@ -54,11 +54,26 @@ class Calculator
 	end
 
 	def calc(data, expand, percent, sema, lema)
-		# start state
+		close = data.map{|v| v[2]}
 
-		data.each do |tick|
-			# state machine
+		state = 'wait'
+		sum = 0.0
+		order = nil
+
+		data.each.with_index do |tick, index|
+			next if index + 1 < lema
+
+			case state
+				when 'wait'
+					#
+				when 'buy'
+					#
+				when 'sell'
+					#
+			end
 		end
+
+		File.write 'result.txt', "\n", mode: 'a'
 	end
 
 end
