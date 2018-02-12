@@ -1,46 +1,66 @@
 require 'moving_average'
 
-data = Marshal.restore File.read('data.txt')
+class Calculator
 
-expands = [100.0, 87.5, 75.0, 62.5, 50.0]
-percents = [3.0, 2.5, 2.0, 1.5, 1.0, 0.75, 0.5]
-basic_sema = 5
-end_sema = 200
-basic_lema = 10
-end_lema = 600
-ema_indent = 5
-ema_mul_indent = 20
+	EXPANDS = [100.0, 87.5, 75.0, 62.5, 50.0]
+	PERCENTS = [3.0, 2.5, 2.0, 1.5, 1.0, 0.75, 0.5]
+	BASIC_SEMA = 5
+	END_SEMA = 200
+	BASIC_LEMA = 10
+	END_LEMA = 600
+	EMA_INDENT = 5
+	EMA_MUL_INDENT = 20
 
-expands.each do |expand|
-	percents.each do |percent|
-		start_sema = basic_sema
+	def initialize
+		data = Marshal.restore File.read('data.txt')
+
+		EXPANDS.each do |expand|
+			PERCENTS.each do |percent|
+				iteration(data, expand, percent)
+			end
+		end
+	end
+
+	def iteration(data, expand, percent)
+		start_sema = BASIC_SEMA
 		sema = start_sema
-		lema = basic_lema
+		lema = BASIC_LEMA
 
 		loop do
 
-			#
+			calc(data, expand, percent, sema, lema)
 
 			lema += 1
 
-			if lema / sema > ema_mul_indent
+			if lema / sema > EMA_MUL_INDENT
 
 				loop do
 					sema += 1
 
-					break if lema / sema <= ema_mul_indent
+					break if lema / sema <= EMA_MUL_INDENT
 				end
 			end
 
-			if lema > end_lema
+			if lema > END_LEMA
 				start_sema += 1
 				sema = start_sema
-				lema = sema + ema_indent
+				lema = sema + EMA_INDENT
 			end
 
-			if sema > end_sema
+			if sema > END_SEMA
 				break
 			end
 		end
 	end
+
+	def calc(data, expand, percent, sema, lema)
+		# start state
+
+		data.each do |tick|
+			# state machine
+		end
+	end
+
 end
+
+Calculator.new
