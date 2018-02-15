@@ -69,7 +69,11 @@ class MoveAverage
 			if filters [
 				cross_long_ma,
 				break_filter(@ma_state.long),
-				large_candle_filter
+				large_candle_filter,
+				fast_reverse_filter,
+				serial_fast_reverse_filter,
+				cross_near_filter,
+				all_ma_break_filter
 			]
 				@state = 'long'
 			end
@@ -77,7 +81,11 @@ class MoveAverage
 			if filters [
 				cross_short_ma,
 				break_filter(@ma_state.short),
-				large_candle_filter
+				large_candle_filter,
+				fast_reverse_filter,
+				serial_fast_reverse_filter,
+				cross_near_filter,
+				all_ma_break_filter
 			]
 				@state = 'short'
 			end
@@ -142,6 +150,22 @@ class MoveAverage
 
 	def large_candle_filter
 		@tick.high / @tick.low < LARGE_CANDLE
+	end
+
+	def fast_reverse_filter
+		true
+	end
+
+	def serial_fast_reverse_filter
+		true
+	end
+
+	def cross_near_filter
+		true
+	end
+
+	def all_ma_break_filter
+		true
 	end
 
 	def filters(items)
