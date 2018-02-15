@@ -71,7 +71,6 @@ class MoveAverage
 				break_filter(@ma_state.long),
 				large_candle_filter,
 				fast_reverse_filter,
-				serial_fast_reverse_filter,
 				cross_near_filter,
 				all_ma_break_filter
 			]
@@ -83,7 +82,6 @@ class MoveAverage
 				break_filter(@ma_state.short),
 				large_candle_filter,
 				fast_reverse_filter,
-				serial_fast_reverse_filter,
 				cross_near_filter,
 				all_ma_break_filter
 			]
@@ -153,10 +151,6 @@ class MoveAverage
 	end
 
 	def fast_reverse_filter
-		true
-	end
-
-	def serial_fast_reverse_filter
 		true
 	end
 

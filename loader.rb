@@ -19,7 +19,7 @@ result_hash = {}
 result = []
 
 loop do
-	if to > to_end
+	if from > to_end
 		break
 	end
 
