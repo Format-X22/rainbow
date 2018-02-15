@@ -10,7 +10,7 @@ class MoveAverage
 	SAFE = 0.002 + TAKE
 	MARGIN = 0.01
 	PROFIT = 0.15
-	BREAK_FILTER = 1.0025
+	BREAK_FILTER = 0.0025
 	LARGE_CANDLE = 1.02
 
 	def initialize
@@ -68,7 +68,7 @@ class MoveAverage
 		if @ma_state.long > @ma_state.short
 			if filters [
 				cross_long_ma,
-				break_filter(@ma_state.long),
+				break_filter(true, @ma_state.long),
 				large_candle_filter,
 				fast_reverse_filter,
 				cross_near_filter,
@@ -79,7 +79,7 @@ class MoveAverage
 		else
 			if filters [
 				cross_short_ma,
-				break_filter(@ma_state.short),
+				break_filter(false, @ma_state.short),
 				large_candle_filter,
 				fast_reverse_filter,
 				cross_near_filter,
@@ -142,8 +142,12 @@ class MoveAverage
 		@tick.high > @ma_state.short and @tick.low < @ma_state.short and @last.low > @ma_state.l_short
 	end
 
-	def break_filter(ma)
-		@tick.low * BREAK_FILTER < ma
+	def break_filter(from_down, ma)
+		if from_down
+			@tick.high * (1 - BREAK_FILTER) > ma
+		else
+			@tick.low * (1 + BREAK_FILTER) < ma
+		end
 	end
 
 	def large_candle_filter
