@@ -12,11 +12,18 @@ class MoveAverage
 	PROFIT = 0.15
 	BREAK_FILTER = 0.0025
 	LARGE_CANDLE = 1.02
+	SKIP_CROSS = 6
+	SKIP_FAST = 1
+	SKIP_ALL_MA = 6
 
 	def initialize
 		@data = Marshal.restore(File.read('data.txt')).last(288 * 7)
 		@logger = Logger.new
 		@ma_state = MaState.new @data, LONG_MA_PERIOD, SHORT_MA_PERIOD
+
+		@cross_tracker = 0
+		@break_short_tracker = 0
+		@break_long_tracker = 0
 
 		@result = 0
 		@state = 'wait'
@@ -29,12 +36,16 @@ class MoveAverage
 		@data.each.with_index do |tick_data, index|
 			next if do_skip_procedure(tick_data, index)
 
+			@index = index
 			@tick = Tick.new tick_data
 			@last = Tick.new @last_data
 
 			@logger.tick = @tick
 
-			@ma_state.calc_ma(index)
+			@ma_state.calc_ma(@index)
+
+			break_ma_tracker
+			cross_ma_tracker
 
 			case @state
 				when 'wait' then handle_wait
@@ -67,23 +78,23 @@ class MoveAverage
 	def handle_wait
 		if @ma_state.long > @ma_state.short
 			if filters [
-				cross_long_ma,
+				break_long_ma,
 				break_filter(true, @ma_state.long),
 				large_candle_filter,
-				fast_reverse_filter,
+				fast_reverse_filter(true),
 				cross_near_filter,
-				all_ma_break_filter
+				all_ma_break_filter(true)
 			]
 				@state = 'long'
 			end
 		else
 			if filters [
-				cross_short_ma,
+				break_short_ma,
 				break_filter(false, @ma_state.short),
 				large_candle_filter,
-				fast_reverse_filter,
+				fast_reverse_filter(false),
 				cross_near_filter,
-				all_ma_break_filter
+				all_ma_break_filter(false)
 			]
 				@state = 'short'
 			end
@@ -134,11 +145,29 @@ class MoveAverage
 		end
 	end
 
-	def cross_long_ma
+	def break_ma_tracker
+		if @last.high * (1 + BREAK_FILTER) > @ma_state.long and @last.low * (1 - BREAK_FILTER) < @ma_state.long
+			@break_long_tracker = @index
+		end
+
+		if @last.high * (1 + BREAK_FILTER) > @ma_state.short and @last.low * (1 - BREAK_FILTER) < @ma_state.short
+			@break_short_tracker = @index
+		end
+	end
+
+	def cross_ma_tracker
+		ma = @ma_state
+
+		if (ma.l_long > ma.l_short and ma.long <= ma.short) or (ma.l_long < ma.l_short and ma.long >= ma.short)
+			@cross_tracker = @index
+		end
+	end
+
+	def break_long_ma
 		@tick.high > @ma_state.long and @tick.low < @ma_state.long and @last.high < @ma_state.l_long
 	end
 
-	def cross_short_ma
+	def break_short_ma
 		@tick.high > @ma_state.short and @tick.low < @ma_state.short and @last.low > @ma_state.l_short
 	end
 
@@ -154,16 +183,24 @@ class MoveAverage
 		@tick.high / @tick.low < LARGE_CANDLE
 	end
 
-	def fast_reverse_filter
-		true
+	def fast_reverse_filter(long)
+		if long
+			@break_long_tracker + SKIP_FAST <= @index
+		else
+			@break_short_tracker + SKIP_FAST <= @index
+		end
 	end
 
 	def cross_near_filter
-		true
+		@cross_tracker + SKIP_CROSS < @index
 	end
 
-	def all_ma_break_filter
-		true
+	def all_ma_break_filter(long)
+		if long
+			@break_short_tracker + SKIP_ALL_MA < @index and @tick.low > @ma_state.short
+		else
+			@break_long_tracker + SKIP_ALL_MA < @index and @tick.high < @ma_state.long
+		end
 	end
 
 	def filters(items)
