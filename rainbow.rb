@@ -36,6 +36,8 @@ class Rainbow
 			# trackers
 
 			case @state
+				when 'wait' then ''
+				else
 				# state machine
 			end
 		end
