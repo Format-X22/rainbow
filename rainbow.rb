@@ -12,12 +12,13 @@ class Rainbow
 	MARGIN = 0.05
 	PROFIT = 0.10
 
-	SKIP_CROSS = 20
-	SKIP_CROSS_MOVE = 0.02
-	SKIP_BLACK_TOUCH = 20
+	SKIP_CROSS = 50
+	SKIP_BLACK_MARGIN_UP = 1.11
+	SKIP_BLACK_MARGIN_DOWN = 1.026
+	SKIP_BLACK_BREAK = 35
 
 	def initialize
-		@data = Marshal.restore(File.read('data.txt')).last(288 * 7)
+		@data = Marshal.restore(File.read('data.txt'))#.last(288 * 45)
 		@logger = Logger.new
 		@ma_state = MaState.new @data, VIOLET, BLUE, GREEN, RED, BLACK
 
@@ -73,7 +74,29 @@ class Rainbow
 	end
 
 	def handle_wait
-		#
+		ma = @ma_state
+
+		if @index == @cross_track
+			if ma.violet > ma.blue and ma.blue > ma.green and ma.green > ma.red and ma.red > ma.black
+				if filters [
+					black_break_filter,
+					cross_filter,
+					black_margin_filter(true)
+				]
+					@state = 'long'
+				end
+			end
+
+			if ma.violet < ma.blue and ma.blue < ma.green and ma.green < ma.red and ma.red < ma.black
+				if filters [
+					black_break_filter,
+					cross_filter,
+					black_margin_filter(false)
+				]
+					@state = 'short'
+				end
+			end
+		end
 	end
 
 	def handle_long
@@ -138,6 +161,28 @@ class Rainbow
 		end
 	end
 
+	def black_break_filter
+		if @break_track
+			@break_track < @index - SKIP_BLACK_BREAK
+		else
+			false
+		end
+	end
+
+	def cross_filter
+		@cross_track_last < @index - SKIP_CROSS
+	end
+
+	def black_margin_filter(long)
+		if long
+			@tick.high / @ma_state.black < SKIP_BLACK_MARGIN_UP and
+				@tick.high / @ma_state.black > SKIP_BLACK_MARGIN_DOWN
+		else
+			@ma_state.black / @tick.low < SKIP_BLACK_MARGIN_UP and
+				@ma_state.black / @tick.low > SKIP_BLACK_MARGIN_DOWN
+		end
+	end
+
 	def filters(items)
 		items.all? {|i| i}
 	end
@@ -178,11 +223,11 @@ class Rainbow
 		end
 
 		def buy
-			puts "Buy at :: #{Time.at @tick.date}"
+			#puts "Buy at :: #{Time.at @tick.date}"
 		end
 
 		def buy_profit
-			puts "Buy PROFIT :: #{Time.at @tick.date}"
+			#puts "Buy PROFIT :: #{Time.at @tick.date}"
 		end
 
 		def buy_fail
@@ -190,11 +235,11 @@ class Rainbow
 		end
 
 		def sell
-			puts "Sell at :: #{Time.at @tick.date}"
+			#puts "Sell at :: #{Time.at @tick.date}"
 		end
 
 		def sell_profit
-			puts "Sell PROFIT :: #{Time.at @tick.date}"
+			#puts "Sell PROFIT :: #{Time.at @tick.date}"
 		end
 
 		def sell_fail
