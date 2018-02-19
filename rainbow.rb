@@ -6,13 +6,14 @@ class Rainbow
 	BLUE = 25
 	GREEN = 50
 	RED = 100
+	YELLOW = 200
 	BLACK = 300
 
-	SAFE = 0.007 + 0.003
+	SAFE = 0.017 + 0.003
 	MARGIN = 0.05
-	PROFIT = 0.10
+	PROFIT = 0.25
 
-	SKIP_CROSS = 50
+	SKIP_CROSS = 10
 	SKIP_BLACK_MARGIN_UP = 1.11
 	SKIP_BLACK_MARGIN_DOWN = 1.026
 	SKIP_BLACK_BREAK = 35
@@ -20,7 +21,7 @@ class Rainbow
 	def initialize
 		@data = Marshal.restore(File.read('data.txt'))#.last(288 * 45)
 		@logger = Logger.new
-		@ma_state = MaState.new @data, VIOLET, BLUE, GREEN, RED, BLACK
+		@ma_state = MaState.new @data, VIOLET, BLUE, GREEN, RED, YELLOW, BLACK
 
 		@result = 0
 		@cum_result = 0
@@ -77,21 +78,21 @@ class Rainbow
 		ma = @ma_state
 
 		if @index == @cross_track
-			if ma.violet > ma.blue and ma.blue > ma.green and ma.green > ma.red and ma.red > ma.black
+			if ma.violet > ma.blue and ma.blue > ma.green and ma.green > ma.red and ma.red > ma.yellow and ma.yellow > ma.black
 				if filters [
-					black_break_filter,
+					#black_break_filter,
 					cross_filter,
-					black_margin_filter(true)
+					#black_margin_filter(true)
 				]
 					@state = 'long'
 				end
 			end
 
-			if ma.violet < ma.blue and ma.blue < ma.green and ma.green < ma.red and ma.red < ma.black
+			if ma.violet < ma.blue and ma.blue < ma.green and ma.green < ma.red and ma.red < ma.yellow and ma.yellow < ma.black
 				if filters [
-					black_break_filter,
+					#black_break_filter,
 					cross_filter,
-					black_margin_filter(false)
+					#black_margin_filter(false)
 				]
 					@state = 'short'
 				end
@@ -196,7 +197,7 @@ class Rainbow
 	end
 
 	class MaState
-		attr_reader :violet, :blue, :green, :red, :black, :l_green, :l_red
+		attr_reader :violet, :blue, :green, :red, :yellow, :black, :l_green, :l_red
 
 		def initialize(data, *periods)
 			@data = data.map{|v| v[2]}
@@ -211,7 +212,8 @@ class Rainbow
 			@blue = @data.sma(index, @periods[1])
 			@green = @data.sma(index, @periods[2])
 			@red = @data.sma(index, @periods[3])
-			@black = @data.sma(index, @periods[4])
+			@yellow = @data.sma(index, @periods[4])
+			@black = @data.sma(index, @periods[5])
 		end
 	end
 
@@ -223,7 +225,7 @@ class Rainbow
 		end
 
 		def buy
-			#puts "Buy at :: #{Time.at @tick.date}"
+			puts "Buy at :: #{Time.at @tick.date}"
 		end
 
 		def buy_profit
@@ -235,7 +237,7 @@ class Rainbow
 		end
 
 		def sell
-			#puts "Sell at :: #{Time.at @tick.date}"
+			puts "Sell at :: #{Time.at @tick.date}"
 		end
 
 		def sell_profit
