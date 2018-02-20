@@ -13,24 +13,26 @@ class Rainbow
 	MARGIN = 0.05
 	PROFIT = 0.25
 
-	SKIP_CROSS = 10
-	SKIP_BLACK_MARGIN_UP = 1.11
-	SKIP_BLACK_MARGIN_DOWN = 1.026
+	SKIP_CROSS = 20
 	SKIP_BLACK_BREAK = 35
+	MOVE_WINDOW = 20
+	MOVE_MAX = 1.07
 
 	def initialize
-		@data = Marshal.restore(File.read('data.txt'))#.last(288 * 45)
+		@data = Marshal.restore(File.read('data.txt'))#.last(288 * 51)
 		@logger = Logger.new
 		@ma_state = MaState.new @data, VIOLET, BLUE, GREEN, RED, YELLOW, BLACK
 
 		@result = 0
-		@cum_result = 0
+		@cum_result = 100
 		@state = 'wait'
 		@order = nil
 
 		@cross_track = nil
 		@cross_track_last = nil
 		@break_track = nil
+		@move_track = nil
+		@move_track_store = []
 
 		calc
 
@@ -50,6 +52,7 @@ class Rainbow
 
 			cross_tracker
 			break_tracker
+			move_tracker
 
 			case @state
 				when 'wait' then handle_wait
@@ -82,7 +85,7 @@ class Rainbow
 				if filters [
 					#black_break_filter,
 					cross_filter,
-					#black_margin_filter(true)
+					move_filter
 				]
 					@state = 'long'
 				end
@@ -92,7 +95,7 @@ class Rainbow
 				if filters [
 					#black_break_filter,
 					cross_filter,
-					#black_margin_filter(false)
+					move_filter
 				]
 					@state = 'short'
 				end
@@ -109,12 +112,14 @@ class Rainbow
 
 		if @order * (1 - MARGIN) > @tick.low
 			@result -= 1
+			@cum_result = @cum_result / 2
 			@order = nil
 			@state = 'wait'
 
 			@logger.buy_fail
 		elsif @order * (1 + SAFE) < @tick.high
 			@result += PROFIT
+			@cum_result = @cum_result * (1 + (PROFIT / 2))
 			@order = nil
 			@state = 'wait'
 
@@ -131,12 +136,14 @@ class Rainbow
 
 		if @order * (1 + MARGIN) < @tick.high
 			@result -= 1
+			@cum_result = @cum_result / 2
 			@order = nil
 			@state = 'wait'
 
 			@logger.sell_fail
 		elsif @order * (1 - SAFE) > @tick.low
 			@result += PROFIT
+			@cum_result = @cum_result * (1 + (PROFIT / 2))
 			@order = nil
 			@state = 'wait'
 
@@ -162,6 +169,15 @@ class Rainbow
 		end
 	end
 
+	def move_tracker
+		@move_track_store.push [@tick.high, @tick.low]
+
+		if @move_track_store.size == MOVE_WINDOW
+			@move_track = @move_track_store.first[0] / @move_track_store.last[1]
+			@move_track_store.shift
+		end
+	end
+
 	def black_break_filter
 		if @break_track
 			@break_track < @index - SKIP_BLACK_BREAK
@@ -174,13 +190,12 @@ class Rainbow
 		@cross_track_last < @index - SKIP_CROSS
 	end
 
-	def black_margin_filter(long)
-		if long
-			@tick.high / @ma_state.black < SKIP_BLACK_MARGIN_UP and
-				@tick.high / @ma_state.black > SKIP_BLACK_MARGIN_DOWN
+	def move_filter
+		if @move_track
+
+			@move_track < MOVE_MAX
 		else
-			@ma_state.black / @tick.low < SKIP_BLACK_MARGIN_UP and
-				@ma_state.black / @tick.low > SKIP_BLACK_MARGIN_DOWN
+			false
 		end
 	end
 
@@ -229,7 +244,7 @@ class Rainbow
 		end
 
 		def buy_profit
-			#puts "Buy PROFIT :: #{Time.at @tick.date}"
+			puts "Buy PROFIT :: #{Time.at @tick.date}"
 		end
 
 		def buy_fail
@@ -241,7 +256,7 @@ class Rainbow
 		end
 
 		def sell_profit
-			#puts "Sell PROFIT :: #{Time.at @tick.date}"
+			puts "Sell PROFIT :: #{Time.at @tick.date}"
 		end
 
 		def sell_fail
