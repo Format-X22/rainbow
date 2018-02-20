@@ -9,17 +9,17 @@ class Rainbow
 	YELLOW = 200
 	BLACK = 300
 
-	SAFE = 0.017 + 0.003
+	SAFE = 0.014 + 0.003
 	MARGIN = 0.05
-	PROFIT = 0.25
+	PROFIT = 0.21
 
 	SKIP_CROSS = 20
 	SKIP_BLACK_BREAK = 35
 	MOVE_WINDOW = 20
-	MOVE_MAX = 1.07
+	MOVE_MAX = 1.1
 
 	def initialize
-		@data = Marshal.restore(File.read('data.txt'))#.last(288 * 51)
+		@data = Marshal.restore(File.read('data.txt')).last(288 * 51)
 		@logger = Logger.new
 		@ma_state = MaState.new @data, VIOLET, BLUE, GREEN, RED, YELLOW, BLACK
 
@@ -33,6 +33,8 @@ class Rainbow
 		@break_track = nil
 		@move_track = nil
 		@move_track_store = []
+		@black_direction = nil
+		@black_allow = false
 
 		calc
 
@@ -53,6 +55,7 @@ class Rainbow
 			cross_tracker
 			break_tracker
 			move_tracker
+			black_cross_tracker
 
 			case @state
 				when 'wait' then handle_wait
@@ -85,20 +88,26 @@ class Rainbow
 				if filters [
 					#black_break_filter,
 					cross_filter,
-					move_filter
+					move_filter,
+					black_cross_filter
 				]
 					@state = 'long'
 				end
+
+				@black_allow = false
 			end
 
 			if ma.violet < ma.blue and ma.blue < ma.green and ma.green < ma.red and ma.red < ma.yellow and ma.yellow < ma.black
 				if filters [
 					#black_break_filter,
 					cross_filter,
-					move_filter
+					move_filter,
+					black_cross_filter
 				]
 					@state = 'short'
 				end
+
+				@black_allow = false
 			end
 		end
 	end
@@ -178,6 +187,23 @@ class Rainbow
 		end
 	end
 
+	def black_cross_tracker
+		ma = @ma_state
+		last_direction = @black_direction
+
+		if ma.violet > ma.black and ma.blue > ma.black and ma.green > ma.black and ma.red > ma.black
+			@black_direction = 'up'
+		end
+
+		if ma.violet < ma.black and ma.blue < ma.black and ma.green < ma.black and ma.red < ma.black
+			@black_direction = 'down'
+		end
+
+		if @black_direction != last_direction
+			@black_allow = true
+		end
+	end
+
 	def black_break_filter
 		if @break_track
 			@break_track < @index - SKIP_BLACK_BREAK
@@ -197,6 +223,10 @@ class Rainbow
 		else
 			false
 		end
+	end
+
+	def black_cross_filter
+		@black_allow
 	end
 
 	def filters(items)
@@ -244,7 +274,7 @@ class Rainbow
 		end
 
 		def buy_profit
-			puts "Buy PROFIT :: #{Time.at @tick.date}"
+			#puts "Buy PROFIT :: #{Time.at @tick.date}"
 		end
 
 		def buy_fail
@@ -256,7 +286,7 @@ class Rainbow
 		end
 
 		def sell_profit
-			puts "Sell PROFIT :: #{Time.at @tick.date}"
+			#puts "Sell PROFIT :: #{Time.at @tick.date}"
 		end
 
 		def sell_fail

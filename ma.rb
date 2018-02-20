@@ -6,18 +6,18 @@ class MoveAverage
 	SHORT_MA_PERIOD = 100
 	LONG_MA_PERIOD = 50
 	SKIP = [SHORT_MA_PERIOD, LONG_MA_PERIOD].max + 1
-	TAKE = 0.003
-	SAFE = 0.002 + TAKE
-	MARGIN = 0.01
-	PROFIT = 0.15
-	BREAK_FILTER = 0.0025
-	LARGE_CANDLE = 1.02
+	TAKE = 0.004
+	SAFE = 0.003 + TAKE
+	MARGIN = 0.05
+	PROFIT = 0.06
+	BREAK_FILTER = 0.0026
+	LARGE_CANDLE = 1.014
 	SKIP_CROSS = 6
-	SKIP_FAST = 1
+	SKIP_FAST = 0
 	SKIP_ALL_MA = 6
 
 	def initialize
-		@data = Marshal.restore(File.read('data.txt')).last(288 * 7)
+		@data = Marshal.restore(File.read('data.txt'))#.last(288 * 7)
 		@logger = Logger.new
 		@ma_state = MaState.new @data, LONG_MA_PERIOD, SHORT_MA_PERIOD
 
