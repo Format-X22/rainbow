@@ -6,19 +6,20 @@ class Half
 	RED = 100
 	BLACK = 250
 
-	TAKE = 0.125 + 0.005
-	MARGIN = 0.085 # 9.64
-	PROFIT = 1.2
+	TAKE = 0.12 + 0.01
+	MARGIN = 0.085 # x9
+	PROFIT = 0.95
 	MOVE_WINDOW = 20
 	MOVE_MAX = 1.12
 
 	def initialize
-		@data = Marshal.restore(File.read('data1h.txt'))#.last(288 * 52)
+		@data = Marshal.restore(File.read('data1h.txt'))#.last(24 * 365)
 		@logger = Logger.new
 		@ma_state = MaState.new @data, GREEN, RED, BLACK
 
 		@result = 0
 		@cum_result = 100
+		@cum_half_result = 100
 		@state = 'wait'
 		@order = nil
 
@@ -33,6 +34,8 @@ class Half
 
 		@logger.result(@result)
 		@logger.result(@cum_result)
+		@logger.result(@cum_half_result)
+		@logger.result((@cum_half_result / 100) * 100_000)
 	end
 
 	def calc
@@ -117,6 +120,7 @@ class Half
 		elsif @order * (1 + TAKE) < @tick.high
 			@result += PROFIT
 			@cum_result = @cum_result * (1 + PROFIT)
+			@cum_half_result = @cum_half_result * (1 + (PROFIT / 2))
 			@order = nil
 			@state = 'wait'
 
@@ -141,6 +145,7 @@ class Half
 		elsif @order * (1 - TAKE) > @tick.low
 			@result += PROFIT
 			@cum_result = @cum_result * (1 + PROFIT)
+			@cum_half_result = @cum_half_result * (1 + (PROFIT / 2))
 			@order = nil
 			@state = 'wait'
 
@@ -244,7 +249,7 @@ class Half
 		end
 
 		def buy_profit
-			#puts "Buy PROFIT :: #{Time.at @tick.date}"
+			puts "Buy PROFIT :: #{Time.at @tick.date}"
 		end
 
 		def buy_fail
@@ -256,7 +261,7 @@ class Half
 		end
 
 		def sell_profit
-			#puts "Sell PROFIT :: #{Time.at @tick.date}"
+			puts "Sell PROFIT :: #{Time.at @tick.date}"
 		end
 
 		def sell_fail
