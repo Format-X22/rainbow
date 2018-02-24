@@ -1,27 +1,19 @@
 require 'moving_average'
 
-class Rainbow
+class Half
 
-	VIOLET = 10
-	BLUE = 25
-	GREEN = 50
+	GREEN = 25
 	RED = 100
-	YELLOW = 200
-	BLACK = 300
+	BLACK = 250
 
-	SAFE = 0.014 + 0.003
-	MARGIN = 0.05
-	PROFIT = 0.21
-
-	SKIP_CROSS = 20
-	SKIP_BLACK_BREAK = 35
-	MOVE_WINDOW = 20
-	MOVE_MAX = 1.1
+	TAKE = 0.12 + 0.01
+	MARGIN = 0.1
+	PROFIT = 1
 
 	def initialize
-		@data = Marshal.restore(File.read('data.txt')).last(288 * 52)
+		@data = Marshal.restore(File.read('data1h.txt'))#.last(288 * 52)
 		@logger = Logger.new
-		@ma_state = MaState.new @data, VIOLET, BLUE, GREEN, RED, YELLOW, BLACK
+		@ma_state = MaState.new @data, GREEN, RED, BLACK
 
 		@result = 0
 		@cum_result = 100
@@ -30,9 +22,6 @@ class Rainbow
 
 		@cross_track = nil
 		@cross_track_last = nil
-		@break_track = nil
-		@move_track = nil
-		@move_track_store = []
 		@black_direction = nil
 		@black_allow = false
 
@@ -53,8 +42,6 @@ class Rainbow
 			@ma_state.calc_ma(@index)
 
 			cross_tracker
-			break_tracker
-			move_tracker
 			black_cross_tracker
 
 			case @state
@@ -84,11 +71,8 @@ class Rainbow
 		ma = @ma_state
 
 		if @index == @cross_track
-			if ma.violet > ma.blue and ma.blue > ma.green and ma.green > ma.red and ma.red > ma.yellow and ma.yellow > ma.black
+			if ma.green > ma.red and ma.red > ma.black
 				if filters [
-					#black_break_filter,
-					cross_filter,
-					move_filter,
 					black_cross_filter
 				]
 					@state = 'long'
@@ -97,11 +81,8 @@ class Rainbow
 				@black_allow = false
 			end
 
-			if ma.violet < ma.blue and ma.blue < ma.green and ma.green < ma.red and ma.red < ma.yellow and ma.yellow < ma.black
+			if ma.green < ma.red and ma.red < ma.black
 				if filters [
-					#black_break_filter,
-					cross_filter,
-					move_filter,
 					black_cross_filter
 				]
 					@state = 'short'
@@ -120,15 +101,15 @@ class Rainbow
 		@order ||= @tick.open
 
 		if @order * (1 - MARGIN) > @tick.low
-			#@result -= 1
-			@cum_result = @cum_result / 2
+			@result -= 1
+			@cum_result = 0
 			@order = nil
 			@state = 'wait'
 
 			@logger.buy_fail
-		elsif @order * (1 + SAFE) < @tick.high
+		elsif @order * (1 + TAKE) < @tick.high
 			@result += PROFIT
-			@cum_result = @cum_result * (1 + (PROFIT / 2))
+			@cum_result = @cum_result * (1 + PROFIT)
 			@order = nil
 			@state = 'wait'
 
@@ -144,15 +125,15 @@ class Rainbow
 		@order ||= @tick.open
 
 		if @order * (1 + MARGIN) < @tick.high
-			#@result -= 1
-			@cum_result = @cum_result / 2
+			@result -= 1
+			@cum_result = 0
 			@order = nil
 			@state = 'wait'
 
 			@logger.sell_fail
-		elsif @order * (1 - SAFE) > @tick.low
+		elsif @order * (1 - TAKE) > @tick.low
 			@result += PROFIT
-			@cum_result = @cum_result * (1 + (PROFIT / 2))
+			@cum_result = @cum_result * (1 + PROFIT)
 			@order = nil
 			@state = 'wait'
 
@@ -172,56 +153,20 @@ class Rainbow
 		end
 	end
 
-	def break_tracker
-		if @tick.high > @ma_state.black and @tick.low < @ma_state.black
-			@break_track = @index
-		end
-	end
-
-	def move_tracker
-		@move_track_store.push [@tick.high, @tick.low]
-
-		if @move_track_store.size == MOVE_WINDOW
-			@move_track = @move_track_store.first[0] / @move_track_store.last[1]
-			@move_track_store.shift
-		end
-	end
-
 	def black_cross_tracker
 		ma = @ma_state
 		last_direction = @black_direction
 
-		if ma.violet > ma.black and ma.blue > ma.black and ma.green > ma.black and ma.red > ma.black
+		if ma.green > ma.black
 			@black_direction = 'up'
 		end
 
-		if ma.violet < ma.black and ma.blue < ma.black and ma.green < ma.black and ma.red < ma.black
+		if ma.green < ma.black
 			@black_direction = 'down'
 		end
 
 		if @black_direction != last_direction
 			@black_allow = true
-		end
-	end
-
-	def black_break_filter
-		if @break_track
-			@break_track < @index - SKIP_BLACK_BREAK
-		else
-			false
-		end
-	end
-
-	def cross_filter
-		@cross_track_last < @index - SKIP_CROSS
-	end
-
-	def move_filter
-		if @move_track
-
-			@move_track < MOVE_MAX
-		else
-			false
 		end
 	end
 
@@ -242,7 +187,7 @@ class Rainbow
 	end
 
 	class MaState
-		attr_reader :violet, :blue, :green, :red, :yellow, :black, :l_green, :l_red
+		attr_reader :green, :red, :black, :l_green, :l_red
 
 		def initialize(data, *periods)
 			@data = data.map{|v| v[2]}
@@ -253,12 +198,9 @@ class Rainbow
 			@l_green = @green
 			@l_red = @red
 
-			@violet = @data.sma(index, @periods[0])
-			@blue = @data.sma(index, @periods[1])
-			@green = @data.sma(index, @periods[2])
-			@red = @data.sma(index, @periods[3])
-			@yellow = @data.sma(index, @periods[4])
-			@black = @data.sma(index, @periods[5])
+			@green = @data.sma(index, @periods[0])
+			@red = @data.sma(index, @periods[1])
+			@black = @data.sma(index, @periods[2])
 		end
 	end
 
@@ -274,7 +216,7 @@ class Rainbow
 		end
 
 		def buy_profit
-			#puts "Buy PROFIT :: #{Time.at @tick.date}"
+			puts "Buy PROFIT :: #{Time.at @tick.date}"
 		end
 
 		def buy_fail
@@ -286,7 +228,7 @@ class Rainbow
 		end
 
 		def sell_profit
-			#puts "Sell PROFIT :: #{Time.at @tick.date}"
+			puts "Sell PROFIT :: #{Time.at @tick.date}"
 		end
 
 		def sell_fail
@@ -300,4 +242,4 @@ class Rainbow
 	end
 end
 
-Rainbow.new
+Half.new
