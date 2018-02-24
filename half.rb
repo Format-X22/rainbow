@@ -6,9 +6,11 @@ class Half
 	RED = 100
 	BLACK = 250
 
-	TAKE = 0.12 + 0.01
-	MARGIN = 0.1
-	PROFIT = 1
+	TAKE = 0.125 + 0.005
+	MARGIN = 0.085 # 9.64
+	PROFIT = 1.2
+	MOVE_WINDOW = 20
+	MOVE_MAX = 1.12
 
 	def initialize
 		@data = Marshal.restore(File.read('data1h.txt'))#.last(288 * 52)
@@ -24,6 +26,8 @@ class Half
 		@cross_track_last = nil
 		@black_direction = nil
 		@black_allow = false
+		@move_track = nil
+		@move_track_store = []
 
 		calc
 
@@ -43,6 +47,7 @@ class Half
 
 			cross_tracker
 			black_cross_tracker
+			move_tracker
 
 			case @state
 				when 'wait' then handle_wait
@@ -73,7 +78,8 @@ class Half
 		if @index == @cross_track
 			if ma.green > ma.red and ma.red > ma.black
 				if filters [
-					black_cross_filter
+					black_cross_filter,
+					move_filter
 				]
 					@state = 'long'
 				end
@@ -83,7 +89,8 @@ class Half
 
 			if ma.green < ma.red and ma.red < ma.black
 				if filters [
-					black_cross_filter
+					black_cross_filter,
+					move_filter
 				]
 					@state = 'short'
 				end
@@ -101,8 +108,8 @@ class Half
 		@order ||= @tick.open
 
 		if @order * (1 - MARGIN) > @tick.low
-			@result -= 1
-			@cum_result = 0
+			#@result -= 1
+			#@cum_result = 0
 			@order = nil
 			@state = 'wait'
 
@@ -125,8 +132,8 @@ class Half
 		@order ||= @tick.open
 
 		if @order * (1 + MARGIN) < @tick.high
-			@result -= 1
-			@cum_result = 0
+			#@result -= 1
+			#@cum_result = 0
 			@order = nil
 			@state = 'wait'
 
@@ -170,8 +177,29 @@ class Half
 		end
 	end
 
+	def move_tracker
+		@move_track_store.push [@tick.high, @tick.low]
+
+		if @move_track_store.size == MOVE_WINDOW
+			min = @move_track_store.map{|v| v[1].to_f}.min
+			max = @move_track_store.map{|v| v[0].to_f}.max
+
+			@move_track = max / min
+			@move_track_store.shift
+		end
+	end
+
 	def black_cross_filter
 		@black_allow
+	end
+
+	def move_filter
+		if @move_track
+
+			@move_track < MOVE_MAX
+		else
+			false
+		end
 	end
 
 	def filters(items)
@@ -216,7 +244,7 @@ class Half
 		end
 
 		def buy_profit
-			puts "Buy PROFIT :: #{Time.at @tick.date}"
+			#puts "Buy PROFIT :: #{Time.at @tick.date}"
 		end
 
 		def buy_fail
@@ -228,7 +256,7 @@ class Half
 		end
 
 		def sell_profit
-			puts "Sell PROFIT :: #{Time.at @tick.date}"
+			#puts "Sell PROFIT :: #{Time.at @tick.date}"
 		end
 
 		def sell_fail
