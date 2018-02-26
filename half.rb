@@ -4,18 +4,24 @@ class Half
 
 	GREEN = 25
 	RED = 100
-	BLACK = 250
+	BLUE = 250
 
 	TAKE = 0.12 + 0.01
-	MARGIN = 0.085 # x9
-	PROFIT = 0.95
-	MOVE_WINDOW = 20
+	MARGIN = 0.12 # x6.4
+	PROFIT = 0.68
+	MOVE_WINDOW = 24
 	MOVE_MAX = 1.12
+	FLAT_SLICE = 4
+	FLAT_WINDOW = 24 + FLAT_SLICE
+	FLAT_BLUE = 0
+	FLAT_RED = 0
+	FLAT_GREEN = 0.01
+	CROSS_SKIP = 2
 
 	def initialize
 		@data = Marshal.restore(File.read('data1h.txt'))#.last(24 * 365)
 		@logger = Logger.new
-		@ma_state = MaState.new @data, GREEN, RED, BLACK
+		@ma_state = MaState.new @data, GREEN, RED, BLUE
 
 		@result = 0
 		@cum_result = 100
@@ -25,10 +31,12 @@ class Half
 
 		@cross_track = nil
 		@cross_track_last = nil
-		@black_direction = nil
-		@black_allow = false
+		@blue_direction = nil
+		@blue_allow = false
 		@move_track = nil
 		@move_track_store = []
+		@flat_track = nil
+		@flat_track_store = []
 
 		calc
 
@@ -49,8 +57,9 @@ class Half
 			@ma_state.calc_ma(@index)
 
 			cross_tracker
-			black_cross_tracker
+			blue_cross_tracker
 			move_tracker
+			flat_tracker
 
 			case @state
 				when 'wait' then handle_wait
@@ -61,10 +70,10 @@ class Half
 	end
 
 	def do_skip_procedure(data, index)
-		if index < BLACK + 1
+		if index < BLUE + 1
 			@cross_track = index
 
-			if index == BLACK
+			if index == BLUE
 				@ma_state.calc_ma(index)
 				@logger.start(data.first)
 			end
@@ -79,26 +88,30 @@ class Half
 		ma = @ma_state
 
 		if @index == @cross_track
-			if ma.green > ma.red and ma.red > ma.black
+			if ma.green > ma.red and ma.red > ma.blue
 				if filters [
-					black_cross_filter,
-					move_filter
+					blue_cross_filter,
+					move_filter,
+					flat_filter,
+					cross_filter
 				]
 					@state = 'long'
 				end
 
-				@black_allow = false
+				@blue_allow = false
 			end
 
-			if ma.green < ma.red and ma.red < ma.black
+			if ma.green < ma.red and ma.red < ma.blue
 				if filters [
-					black_cross_filter,
-					move_filter
+					blue_cross_filter,
+					move_filter,
+					flat_filter,
+					cross_filter
 				]
 					@state = 'short'
 				end
 
-				@black_allow = false
+				@blue_allow = false
 			end
 		end
 	end
@@ -111,8 +124,8 @@ class Half
 		@order ||= @tick.open
 
 		if @order * (1 - MARGIN) > @tick.low
-			#@result -= 1
-			#@cum_result = 0
+			@result -= 1
+			@cum_result = 0
 			@order = nil
 			@state = 'wait'
 
@@ -136,8 +149,8 @@ class Half
 		@order ||= @tick.open
 
 		if @order * (1 + MARGIN) < @tick.high
-			#@result -= 1
-			#@cum_result = 0
+			@result -= 1
+			@cum_result = 0
 			@order = nil
 			@state = 'wait'
 
@@ -165,20 +178,20 @@ class Half
 		end
 	end
 
-	def black_cross_tracker
+	def blue_cross_tracker
 		ma = @ma_state
-		last_direction = @black_direction
+		last_direction = @blue_direction
 
-		if ma.green > ma.black
-			@black_direction = 'up'
+		if ma.green > ma.blue
+			@blue_direction = 'up'
 		end
 
-		if ma.green < ma.black
-			@black_direction = 'down'
+		if ma.green < ma.blue
+			@blue_direction = 'down'
 		end
 
-		if @black_direction != last_direction
-			@black_allow = true
+		if @blue_direction != last_direction
+			@blue_allow = true
 		end
 	end
 
@@ -194,8 +207,31 @@ class Half
 		end
 	end
 
-	def black_cross_filter
-		@black_allow
+	def flat_tracker
+		flat = @flat_track_store
+
+		flat.push [@ma_state.blue, @ma_state.red, @ma_state.green]
+
+		if flat.size == FLAT_WINDOW
+
+
+			min_blue, max_blue = extract_flat(flat, 0)
+			min_red, max_red = extract_flat(flat, 1)
+			min_green, max_green = extract_flat(flat, 2)
+
+			@flat_track = [max_blue / min_blue, max_red / min_red, max_green / min_green]
+			flat.shift
+		end
+	end
+
+	def extract_flat(arr, index)
+		flat = arr.map{|v| v[index].to_f}.first(FLAT_WINDOW - FLAT_SLICE)
+
+		[flat.min, flat.max]
+	end
+
+	def blue_cross_filter
+		@blue_allow
 	end
 
 	def move_filter
@@ -205,6 +241,20 @@ class Half
 		else
 			false
 		end
+	end
+
+	def flat_filter
+		if @flat_track
+			@flat_track[0] > 1 + FLAT_BLUE and
+			@flat_track[1] > 1 + FLAT_RED and
+			@flat_track[2] > 1 + FLAT_GREEN
+		else
+			false
+		end
+	end
+
+	def cross_filter
+		@cross_track > @cross_track_last + CROSS_SKIP
 	end
 
 	def filters(items)
@@ -220,7 +270,7 @@ class Half
 	end
 
 	class MaState
-		attr_reader :green, :red, :black, :l_green, :l_red
+		attr_reader :green, :red, :blue, :l_green, :l_red
 
 		def initialize(data, *periods)
 			@data = data.map{|v| v[2]}
@@ -233,7 +283,7 @@ class Half
 
 			@green = @data.sma(index, @periods[0])
 			@red = @data.sma(index, @periods[1])
-			@black = @data.sma(index, @periods[2])
+			@blue = @data.sma(index, @periods[2])
 		end
 	end
 

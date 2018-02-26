@@ -10,7 +10,7 @@ url = 'https://www.bitmex.com/api/udf/history?symbol=XBTUSD'
 mul = 10000 * 60
 
 resolution = 60
-from_start = 2.years.ago.to_i
+from_start = 30.month.ago.to_i
 to_end = Time.now.to_i
 from = from_start
 to = from_start + mul * resolution
