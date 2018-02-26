@@ -9,7 +9,7 @@ require 'active_support/core_ext/integer/time'
 url = 'https://www.bitmex.com/api/udf/history?symbol=XBTUSD'
 mul = 10000 * 60
 
-resolution = 60
+resolution = 15
 from_start = 30.month.ago.to_i
 to_end = Time.now.to_i
 from = from_start
@@ -25,10 +25,14 @@ loop do
 
 	data = JSON.parse HTTP.get("#{url}&resolution=#{resolution}&from=#{from}&to=#{to}").to_s
 
-	puts data['t'].length
+	begin
+		puts data['t'].length
 
-	data['t'].each.with_index do |date, index|
-		result_hash[date] = [date, data['o'][index], data['c'][index], data['h'][index], data['l'][index]]
+		data['t'].each.with_index do |date, index|
+			result_hash[date] = [date, data['o'][index], data['c'][index], data['h'][index], data['l'][index]]
+		end
+	rescue
+		puts data
 	end
 
 	from = from + (mul * resolution) - 1000
@@ -39,4 +43,4 @@ result_hash.each do |key, data|
 	result << data
 end
 
-File.write 'data1h.txt', Marshal.dump(result)
+File.write 'data/1m.txt', Marshal.dump(result)
