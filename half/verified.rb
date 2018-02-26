@@ -1,7 +1,13 @@
 require_relative 'calculator'
 
+# 26.02.2018
+# 1H
+# RESULT 12.24
+# RESULT 1136493.8
+# RESULT 19403.78
+
 T1H = Half.new(
-	source: 'data1h.txt',
+	source: 'data/1h.txt',
 
 	green: 25,
 	red: 100,

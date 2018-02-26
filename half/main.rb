@@ -1,7 +1,7 @@
 require_relative 'calculator'
 
 Half.new(
-	source: 'data1h.txt',
+	source: 'data/1h.txt',
 
 	green: 25,
 	red: 100,
