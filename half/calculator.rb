@@ -1,11 +1,19 @@
-require 'moving_average'
+require_relative 'options'
+require_relative 'tick'
+require_relative 'ma_state'
+require_relative 'logger'
 
 class Half
 
 	def initialize(options)
 		@opt = Options.new(options)
-		@data = Marshal.restore(File.read(@opt.source))#.last(24 * 365)
-		@logger = Logger.new
+		@data = Marshal.restore(File.read(@opt.source))
+
+		if @opt.last
+			@data = @data.last(@opt.last)
+		end
+
+		@logger = Logger.new(@opt)
 		@ma_state = MaState.new @data, @opt.green, @opt.red, @opt.blue
 
 		@result = 0
@@ -108,16 +116,23 @@ class Half
 		@order ||= @tick.open
 
 		if @order * (1 - @opt.margin) > @tick.low
-			@result -= 1
-			@cum_result = 0
+			unless @opt.off_fail
+				@result -= 1
+				@cum_result = 0
+				@cum_half_result = 0
+			end
+
 			@order = nil
 			@state = 'wait'
 
 			@logger.buy_fail
 		elsif @order * (1 + @opt.take) < @tick.high
-			@result += @opt.profit
-			@cum_result = @cum_result * (1 + @opt.profit)
-			@cum_half_result = @cum_half_result * (1 + (@opt.profit / 2))
+			unless @opt.off_profit
+				@result += @opt.profit
+				@cum_result = @cum_result * (1 + @opt.profit)
+				@cum_half_result = @cum_half_result * (1 + (@opt.profit / 2))
+			end
+
 			@order = nil
 			@state = 'wait'
 
@@ -133,16 +148,22 @@ class Half
 		@order ||= @tick.open
 
 		if @order * (1 + @opt.margin) < @tick.high
-			@result -= 1
-			@cum_result = 0
+			unless @opt.off_fail
+				@result -= 1
+				@cum_result = 0
+			end
+
 			@order = nil
 			@state = 'wait'
 
 			@logger.sell_fail
 		elsif @order * (1 - @opt.take) > @tick.low
-			@result += @opt.profit
-			@cum_result = @cum_result * (1 + @opt.profit)
-			@cum_half_result = @cum_half_result * (1 + (@opt.profit / 2))
+			unless @opt.off_profit
+				@result += @opt.profit
+				@cum_result = @cum_result * (1 + @opt.profit)
+				@cum_half_result = @cum_half_result * (1 + (@opt.profit / 2))
+			end
+
 			@order = nil
 			@state = 'wait'
 
@@ -244,104 +265,4 @@ class Half
 	def filters(items)
 		items.all? {|i| i}
 	end
-
-	class Options
-		attr_accessor :source,
-			:green, :red, :blue,
-			:take, :margin, :profit,
-			:move_window, :move_max,
-			:flat_slice, :flat_window, :flat_blue, :flat_red, :flat_green,
-			:cross_skip
-
-		def initialize(options)
-			options.each do |key, value|
-				name = "#{key}=".to_sym
-				self.send(name, value)
-			end
-		end
-	end
-
-	class Tick
-		attr_reader :date, :open, :close, :high, :low
-
-		def initialize(data)
-			@date, @open, @close, @high, @low = data
-		end
-	end
-
-	class MaState
-		attr_reader :green, :red, :blue, :l_green, :l_red
-
-		def initialize(data, *periods)
-			@data = data.map{|v| v[2]}
-			@periods = periods
-		end
-
-		def calc_ma(index)
-			@l_green = @green
-			@l_red = @red
-
-			@green = @data.sma(index, @periods[0])
-			@red = @data.sma(index, @periods[1])
-			@blue = @data.sma(index, @periods[2])
-		end
-	end
-
-	class Logger
-		attr_writer :tick
-
-		def start(date)
-			puts "Start :: #{Time.at date}"
-		end
-
-		def buy
-			puts "Buy at :: #{Time.at @tick.date}"
-		end
-
-		def buy_profit
-			puts "Buy @opt.profit :: #{Time.at @tick.date}"
-		end
-
-		def buy_fail
-			puts "Buy FAIL :: #{Time.at @tick.date}"
-		end
-
-		def sell
-			puts "Sell at :: #{Time.at @tick.date}"
-		end
-
-		def sell_profit
-			puts "Sell @opt.profit :: #{Time.at @tick.date}"
-		end
-
-		def sell_fail
-			puts "Sell FAIL :: #{Time.at @tick.date}"
-		end
-
-		def result(data)
-			puts "RESULT #{data.round(2)}"
-		end
-
-	end
 end
-
-T1H = Half.new(
-	source: 'data1h.txt',
-
-	green: 25,
-	red: 100,
-	blue: 250,
-
-	take: 0.12 + 0.01,
-	margin: 0.12, # x6.4
-	profit: 0.68,
-
-	move_window: 24,
-	move_max: 1.12,
-	flat_slice: 4,
-	flat_window: 24 + 4,
-	flat_blue: 0,
-	flat_red: 0,
-	flat_green: 0.01,
-	cross_skip: 2
-)
