@@ -1,3 +1,5 @@
+require 'moving_average'
+
 class Half
 	class MaState
 		attr_reader :green, :red, :blue, :l_green, :l_red

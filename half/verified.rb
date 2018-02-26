@@ -1,6 +1,6 @@
 require_relative 'calculator'
 
-Half.new(
+T1H = Half.new(
 	source: 'data1h.txt',
 
 	green: 25,
@@ -18,12 +18,5 @@ Half.new(
 	flat_blue: 0,
 	flat_red: 0,
 	flat_green: 0.01,
-	cross_skip: 2,
-
-	#last: 24 * 365,
-	#off_profit_log: true,
-	#off_fail_log: true,
-	#off_order_log: true,
-	#off_profit: true,
-	#off_fail: true
+	cross_skip: 2
 )
