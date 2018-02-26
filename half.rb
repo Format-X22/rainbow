@@ -2,26 +2,11 @@ require 'moving_average'
 
 class Half
 
-	GREEN = 25
-	RED = 100
-	BLUE = 250
-
-	TAKE = 0.12 + 0.01
-	MARGIN = 0.12 # x6.4
-	PROFIT = 0.68
-	MOVE_WINDOW = 24
-	MOVE_MAX = 1.12
-	FLAT_SLICE = 4
-	FLAT_WINDOW = 24 + FLAT_SLICE
-	FLAT_BLUE = 0
-	FLAT_RED = 0
-	FLAT_GREEN = 0.01
-	CROSS_SKIP = 2
-
-	def initialize
-		@data = Marshal.restore(File.read('data1h.txt'))#.last(24 * 365)
+	def initialize(options)
+		@opt = Options.new(options)
+		@data = Marshal.restore(File.read(@opt.source))#.last(24 * 365)
 		@logger = Logger.new
-		@ma_state = MaState.new @data, GREEN, RED, BLUE
+		@ma_state = MaState.new @data, @opt.green, @opt.red, @opt.blue
 
 		@result = 0
 		@cum_result = 100
@@ -43,7 +28,6 @@ class Half
 		@logger.result(@result)
 		@logger.result(@cum_result)
 		@logger.result(@cum_half_result)
-		@logger.result((@cum_half_result / 100) * 100_000)
 	end
 
 	def calc
@@ -70,10 +54,10 @@ class Half
 	end
 
 	def do_skip_procedure(data, index)
-		if index < BLUE + 1
+		if index < @opt.blue + 1
 			@cross_track = index
 
-			if index == BLUE
+			if index == @opt.blue
 				@ma_state.calc_ma(index)
 				@logger.start(data.first)
 			end
@@ -123,17 +107,17 @@ class Half
 
 		@order ||= @tick.open
 
-		if @order * (1 - MARGIN) > @tick.low
+		if @order * (1 - @opt.margin) > @tick.low
 			@result -= 1
 			@cum_result = 0
 			@order = nil
 			@state = 'wait'
 
 			@logger.buy_fail
-		elsif @order * (1 + TAKE) < @tick.high
-			@result += PROFIT
-			@cum_result = @cum_result * (1 + PROFIT)
-			@cum_half_result = @cum_half_result * (1 + (PROFIT / 2))
+		elsif @order * (1 + @opt.take) < @tick.high
+			@result += @opt.profit
+			@cum_result = @cum_result * (1 + @opt.profit)
+			@cum_half_result = @cum_half_result * (1 + (@opt.profit / 2))
 			@order = nil
 			@state = 'wait'
 
@@ -148,17 +132,17 @@ class Half
 
 		@order ||= @tick.open
 
-		if @order * (1 + MARGIN) < @tick.high
+		if @order * (1 + @opt.margin) < @tick.high
 			@result -= 1
 			@cum_result = 0
 			@order = nil
 			@state = 'wait'
 
 			@logger.sell_fail
-		elsif @order * (1 - TAKE) > @tick.low
-			@result += PROFIT
-			@cum_result = @cum_result * (1 + PROFIT)
-			@cum_half_result = @cum_half_result * (1 + (PROFIT / 2))
+		elsif @order * (1 - @opt.take) > @tick.low
+			@result += @opt.profit
+			@cum_result = @cum_result * (1 + @opt.profit)
+			@cum_half_result = @cum_half_result * (1 + (@opt.profit / 2))
 			@order = nil
 			@state = 'wait'
 
@@ -198,7 +182,7 @@ class Half
 	def move_tracker
 		@move_track_store.push [@tick.high, @tick.low]
 
-		if @move_track_store.size == MOVE_WINDOW
+		if @move_track_store.size == @opt.move_window
 			min = @move_track_store.map{|v| v[1].to_f}.min
 			max = @move_track_store.map{|v| v[0].to_f}.max
 
@@ -212,7 +196,7 @@ class Half
 
 		flat.push [@ma_state.blue, @ma_state.red, @ma_state.green]
 
-		if flat.size == FLAT_WINDOW
+		if flat.size == @opt.flat_window
 
 
 			min_blue, max_blue = extract_flat(flat, 0)
@@ -225,7 +209,7 @@ class Half
 	end
 
 	def extract_flat(arr, index)
-		flat = arr.map{|v| v[index].to_f}.first(FLAT_WINDOW - FLAT_SLICE)
+		flat = arr.map{|v| v[index].to_f}.first(@opt.flat_window - @opt.flat_slice)
 
 		[flat.min, flat.max]
 	end
@@ -237,7 +221,7 @@ class Half
 	def move_filter
 		if @move_track
 
-			@move_track < MOVE_MAX
+			@move_track < @opt.move_max
 		else
 			false
 		end
@@ -245,20 +229,36 @@ class Half
 
 	def flat_filter
 		if @flat_track
-			@flat_track[0] > 1 + FLAT_BLUE and
-			@flat_track[1] > 1 + FLAT_RED and
-			@flat_track[2] > 1 + FLAT_GREEN
+			@flat_track[0] > 1 + @opt.flat_blue and
+			@flat_track[1] > 1 + @opt.flat_red and
+			@flat_track[2] > 1 + @opt.flat_green
 		else
 			false
 		end
 	end
 
 	def cross_filter
-		@cross_track > @cross_track_last + CROSS_SKIP
+		@cross_track > @cross_track_last + @opt.cross_skip
 	end
 
 	def filters(items)
 		items.all? {|i| i}
+	end
+
+	class Options
+		attr_accessor :source,
+			:green, :red, :blue,
+			:take, :margin, :profit,
+			:move_window, :move_max,
+			:flat_slice, :flat_window, :flat_blue, :flat_red, :flat_green,
+			:cross_skip
+
+		def initialize(options)
+			options.each do |key, value|
+				name = "#{key}=".to_sym
+				self.send(name, value)
+			end
+		end
 	end
 
 	class Tick
@@ -299,7 +299,7 @@ class Half
 		end
 
 		def buy_profit
-			puts "Buy PROFIT :: #{Time.at @tick.date}"
+			puts "Buy @opt.profit :: #{Time.at @tick.date}"
 		end
 
 		def buy_fail
@@ -311,7 +311,7 @@ class Half
 		end
 
 		def sell_profit
-			puts "Sell PROFIT :: #{Time.at @tick.date}"
+			puts "Sell @opt.profit :: #{Time.at @tick.date}"
 		end
 
 		def sell_fail
@@ -325,4 +325,23 @@ class Half
 	end
 end
 
-Half.new
+T1H = Half.new(
+	source: 'data1h.txt',
+
+	green: 25,
+	red: 100,
+	blue: 250,
+
+	take: 0.12 + 0.01,
+	margin: 0.12, # x6.4
+	profit: 0.68,
+
+	move_window: 24,
+	move_max: 1.12,
+	flat_slice: 4,
+	flat_window: 24 + 4,
+	flat_blue: 0,
+	flat_red: 0,
+	flat_green: 0.01,
+	cross_skip: 2
+)
