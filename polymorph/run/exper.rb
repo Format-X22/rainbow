@@ -10,7 +10,7 @@ Polymorph::Algo.new(
 	margin: 0.12, # x6.4
 	profit: 0.68,
 
-	#last: 24 * 365,
+	last: (60 / 5) * 24,
 	#off_profit_log: true,
 	#off_fail_log: true,
 	#off_order_log: true,

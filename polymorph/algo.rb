@@ -14,13 +14,20 @@ module Polymorph class Algo
 		end
 
 		@logger = Logger.new(@opt)
-		@ma_state = MA.new @data, @opt.green, @opt.red
+		@ma = MA.new @data, @opt.green, @opt.red
 
 		@result = 0
 		@cum_result = 100
 		@cum_half_result = 100
 		@state = 'just_wait'
 		@order = nil
+
+		@cross_track = nil
+		@cross_track_last = nil
+		@price_green_track = nil
+		@price_green_track_last = nil
+		@price_red_track = nil
+		@price_red_track_last = nil
 
 		calc
 
@@ -39,7 +46,7 @@ module Polymorph class Algo
 			@tick = Tick.new tick_data
 			@logger.tick = @tick
 
-			@ma_state.calc_ma(@index)
+			@ma.calc_ma(@index)
 
 			ma_cross_tracker
 			price_cross_tracker
@@ -60,7 +67,7 @@ module Polymorph class Algo
 	def do_skip_procedure(data, index)
 		if index < @opt.red + 1
 			if index == @opt.red
-				@ma_state.calc_ma(index)
+				@ma.calc_ma(index)
 				@logger.start(data.first)
 				@logger.empty
 				@tick = Tick.new data
@@ -76,7 +83,7 @@ module Polymorph class Algo
 		#
 	end
 
-	def handle_fail_wait
+	def handle_fail_wait                                                                                       
 		#
 	end
 
@@ -105,7 +112,13 @@ module Polymorph class Algo
 	end
 
 	def ma_cross_tracker
-		#
+		if (@ma.l_red > @ma.l_green and @ma.red <= @ma.green) or (@ma.l_red < @ma.l_green and @ma.red >= @ma.green)
+			unless @cross_track_last == @index
+				@cross_track_last = @cross_track
+			end
+
+			@cross_track = @index
+		end
 	end
 
 	def price_cross_tracker
