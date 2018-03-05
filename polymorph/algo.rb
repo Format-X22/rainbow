@@ -19,7 +19,7 @@ module Polymorph class Algo
 		@result = 0
 		@cum_result = 100
 		@cum_half_result = 100
-		@state = '' # TODO
+		@state = 'just_wait'
 		@order = nil
 
 		calc
@@ -35,13 +35,24 @@ module Polymorph class Algo
 			next if do_skip_procedure(tick_data, index)
 
 			@index = index
+			@last_tick = @tick
 			@tick = Tick.new tick_data
 			@logger.tick = @tick
 
 			@ma_state.calc_ma(@index)
 
+			ma_cross_tracker
+			price_cross_tracker
+
 			case @state
-				when '' then #
+				when 'just_wait' then handle_just_wait
+				when 'fail_wait' then handle_fail_wait
+				when 'long_trigger' then handle_long_trigger
+				when 'short_trigger' then handle_short_trigger
+				when 'long' then handle_long
+				when 'short' then handle_short
+				when 'fail_long' then handle_fail_long
+				when 'fail_short' then handle_fail_short
 			end
 		end
 	end
@@ -52,12 +63,53 @@ module Polymorph class Algo
 				@ma_state.calc_ma(index)
 				@logger.start(data.first)
 				@logger.empty
+				@tick = Tick.new data
 			end
 
 			true
 		else
 			false
 		end
+	end
+
+	def handle_just_wait
+		#
+	end
+
+	def handle_fail_wait
+		#
+	end
+
+	def handle_long_trigger
+		#
+	end
+
+	def handle_short_trigger
+		#
+	end
+
+	def handle_long
+		#
+	end
+
+	def handle_short
+		#
+	end
+
+	def handle_fail_long
+		#
+	end
+
+	def handle_fail_short
+		#
+	end
+
+	def ma_cross_tracker
+		#
+	end
+
+	def price_cross_tracker
+		#
 	end
 
 	def filters(items)
