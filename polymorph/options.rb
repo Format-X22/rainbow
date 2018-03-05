@@ -11,4 +11,5 @@ module Polymorph class Options
 			self.send(name, value)
 		end
 	end
+
 end end

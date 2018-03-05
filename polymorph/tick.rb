@@ -4,4 +4,5 @@ module Polymorph class Tick
 	def initialize(data)
 		@date, @open, @close, @high, @low = data
 	end
+
 end end
