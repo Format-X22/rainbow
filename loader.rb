@@ -9,8 +9,8 @@ require 'active_support/core_ext/integer/time'
 url = 'https://www.bitmex.com/api/udf/history?symbol=XBTUSD'
 mul = 10000 * 60
 
-resolution = 5
-from_start = 30.month.ago.to_i
+resolution = 60
+from_start = 12.month.ago.to_i
 to_end = Time.now.to_i
 from = from_start
 to = from_start + mul * resolution
@@ -43,4 +43,4 @@ result_hash.each do |key, data|
 	result << data
 end
 
-File.write 'data/5m.txt', Marshal.dump(result)
+File.write 'data/1h.txt', Marshal.dump(result)
